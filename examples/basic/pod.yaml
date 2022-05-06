@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: chcontainer
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: chcontainer
+rules:
+- apiGroups: [""]
+  resources: ["pods/exec"]
+  verbs: ["create"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: chcontainer
+subjects:
+- kind: ServiceAccount
+  name: chcontainer
+roleRef:
+  kind: Role
+  name: chcontainer
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: ConfigMap 
+apiVersion: v1 
+metadata:
+  name: chcontainer
+data:
+  CHC_SYMLINKS: "/tmp/one:one:whoami /tmp/two:two:whoami"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: chcontainer
+spec:
+  serviceAccount: chcontainer
+  containers:
+  - name: one
+    image: chcontainer
+    imagePullPolicy: Never
+    command:
+      - /bin/sh
+    args:
+      - -c
+      - "chcontainer symlinks && cat"
+    stdin: true
+    tty: true
+    env:
+      - name: CHC_POD
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.name
+      - name: CHC_CONTAINER
+        value: one
+      - name: CHC_SYMLINKS
+        valueFrom:
+          configMapKeyRef:
+            name: chcontainer
+            key: CHC_SYMLINKS
+  - name: two
+    image: chcontainer
+    imagePullPolicy: Never
+    command:
+      - /bin/sh
+    args:
+      - -c
+      - "chcontainer symlinks && cat"
+    stdin: true
+    tty: true
+    env:
+      - name: CHC_POD
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.name
+      - name: CHC_CONTAINER
+        value: two
+      - name: CHC_SYMLINKS
+        valueFrom:
+          configMapKeyRef:
+            name: chcontainer
+            key: CHC_SYMLINKS
